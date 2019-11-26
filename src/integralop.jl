@@ -95,8 +95,8 @@ function assemblechunk_body!(biop,
         trial_shapes, trial_elements, trial_assembly_data,
         qd, zlocal, store)
 
-    p_step = 16
-    q_step = 16
+    p_step = 64
+    q_step = 64
 
     P = range(1, stop=length(test_elements), step=p_step)
     Q = range(1, stop=length(trial_elements), step=q_step)
@@ -110,16 +110,16 @@ function assemblechunk_body!(biop,
     myid == 1 && print("dots out of 10: ")
     todo, done, pctg = length(P), 0, 0
     for r in P
-        i_offset = (p-r)*Imax
         for s in Q
-            j_offset = (q-s)*Jmax
             fill!(z_group, 0)
-            for p in r : r+p_step-1@
-                p > length(test_elements) && break
-                tcell = test_elements[p]
-                for q in s : s+q_step-1
-                    q > length(trial_elements) && break
-                    bcell = trial_elements[q]
+            for q in s : s+q_step-1
+                j_offset = (q-s)*Jmax
+                q > length(trial_elements) && break
+                bcell = trial_elements[q]
+                for p in r : r+p_step-1
+                    i_offset = (p-r)*Imax
+                    p > length(test_elements) && break
+                    tcell = test_elements[p]
     # for (p,tcell) in enumerate(test_elements)
     #     for (q,bcell) in enumerate(trial_elements)
 
@@ -129,21 +129,21 @@ function assemblechunk_body!(biop,
                     strat = quadrule(biop, test_shapes, trial_shapes, p, tcell, q, bcell, qd)
                     momintegrals!(biop, test_shapes, trial_shapes, tcell, bcell, zlocal, strat)
 
-                    z_group[i_offset:i_offset+Imax-1, j_offset+J_max-1] .= zlocal
+                    z_group[i_offset+1:i_offset+Imax, j_offset+1:j_offset+Jmax] .= zlocal
 
                 end
             end
 
-            for p in r : r+p_step-1
-                i_offset = (p-r)*Imax
-                p > length(test_elements) && break
-                for q in s : s+q_step-1
-                    q > length(trial_elements) && break
-                    j_offset = (q-s)*Jmax
-                    # zlocal = view(z_group, (r-p)*p_step+1 : r*p_step, (s-q)*q_step)+1 : s*q_step)
+            for q in s : s+q_step-1
+                q > length(trial_elements) && break
+                j_offset = (q-s)*Jmax
+                J = length(trial_assembly_data[q])
+                for p in r : r+p_step-1
+                    p > length(test_elements) && break
+                    i_offset = (p-r)*Imax
                     I = length(test_assembly_data[p])
-                    J = length(trial_assembly_data[q])
-                    for j in 1 : J, i in 1 : I
+
+                    for i in 1 : I, j in 1 : J
                         zij = z_group[i_offset + i,j_offset + j]
                         for (n,b) in trial_assembly_data[q][j]
                             zb = zij*b
