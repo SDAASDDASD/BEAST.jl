@@ -95,29 +95,67 @@ function assemblechunk_body!(biop,
         trial_shapes, trial_elements, trial_assembly_data,
         qd, zlocal, store)
 
-    print("dots out of 10: ")
-    todo, done, pctg = length(test_elements), 0, 0
-    for (p,tcell) in enumerate(test_elements)
-        for (q,bcell) in enumerate(trial_elements)
+    p_step = 16
+    q_step = 16
 
-        fill!(zlocal, 0)
-        strat = quadrule(biop, test_shapes, trial_shapes, p, tcell, q, bcell, qd)
-        momintegrals!(biop, test_shapes, trial_shapes, tcell, bcell, zlocal, strat)
-        I = length(test_assembly_data[p])
-        J = length(trial_assembly_data[q])
-        for j in 1 : J, i in 1 : I
-            zij = zlocal[i,j]
-            for (n,b) in trial_assembly_data[q][j]
-                zb = zij*b
-                for (m,a) in test_assembly_data[p][i]
-                    azb = a*zb
-                    store(azb, m, n)
-        end end end end
+    P = range(1, stop=length(test_elements), step=p_step)
+    Q = range(1, stop=length(trial_elements), step=q_step)
+
+    Imax = size(zlocal,1)
+    Jmax = size(zlocal,2)
+
+    z_group = similar(zlocal, Imax*p_step, Jmax*q_step)
+
+    myid = Threads.threadid()
+    myid == 1 && print("dots out of 10: ")
+    todo, done, pctg = length(P), 0, 0
+    for r in P
+        i_offset = (p-r)*Imax
+        for s in Q
+            j_offset = (q-s)*Jmax
+            fill!(z_group, 0)
+            for p in r : r+p_step-1@
+                p > length(test_elements) && break
+                tcell = test_elements[p]
+                for q in s : s+q_step-1
+                    q > length(trial_elements) && break
+                    bcell = trial_elements[q]
+    # for (p,tcell) in enumerate(test_elements)
+    #     for (q,bcell) in enumerate(trial_elements)
+
+                    # fill!(zlocal, 0)
+                    # zlocal = view(z_group, (p-r)*Imax+1 : (p-r+1)*Imax, (q-s)*Jmax+1 : (q-s+1)*Jmax)
+                    fill!(zlocal,0)
+                    strat = quadrule(biop, test_shapes, trial_shapes, p, tcell, q, bcell, qd)
+                    momintegrals!(biop, test_shapes, trial_shapes, tcell, bcell, zlocal, strat)
+
+                    z_group[i_offset:i_offset+Imax-1, j_offset+J_max-1] .= zlocal
+
+                end
+            end
+
+            for p in r : r+p_step-1
+                i_offset = (p-r)*Imax
+                p > length(test_elements) && break
+                for q in s : s+q_step-1
+                    q > length(trial_elements) && break
+                    j_offset = (q-s)*Jmax
+                    # zlocal = view(z_group, (r-p)*p_step+1 : r*p_step, (s-q)*q_step)+1 : s*q_step)
+                    I = length(test_assembly_data[p])
+                    J = length(trial_assembly_data[q])
+                    for j in 1 : J, i in 1 : I
+                        zij = z_group[i_offset + i,j_offset + j]
+                        for (n,b) in trial_assembly_data[q][j]
+                            zb = zij*b
+                            for (m,a) in test_assembly_data[p][i]
+                                azb = a*zb
+                                store(azb, m, n)
+        end end end end end end
 
         done += 1
         new_pctg = round(Int, done / todo * 100)
         if new_pctg > pctg + 9
-            print(".")
+            myid == 1 && print(".")
             pctg = new_pctg
     end end
     println("")
