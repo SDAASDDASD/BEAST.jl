@@ -146,39 +146,18 @@ o, x, y, z = euclidianbasis(3)
 G = boundary(tetrs)
 Z = BEAST.ttrace(curl(X), G)
 
-# fcr, geo = facecurrents(u, Z)
+fcr, geo = facecurrents(u, Z)
+import PlotlyJS
+PlotlyJS.plot(patch(geo, norm.(fcr)))
+
+const CSM = CompScienceMeshes
+hemi = submesh(tet -> cartesian(CSM.center(chart(tetrs,tet)))[3] < 0, tetrs)
+# error()
+bnd_hemi = boundary(hemi)
+
+Xhemi = BEAST.restrict(X, hemi)
+tXhemi = BEAST.ttrace(Xhemi, bnd_hemi)
+
+fcr, geo = facecurrents(u, tXhemi)
 import Plotly
-# Plotly.plot(patch(geo, norm.(fcr)))
-
-Dir = Mesh(vertices(tetrs), CompScienceMeshes.celltype(G)[])
-# error("stop")
-Xplus = BEAST.nedelecc3d(tetrs, skeleton(tetrs,1))
-
-bnd_tetrs = boundary(tetrs)
-ttXplus = BEAST.ttrace(Xplus, bnd_tetrs)
-TF, Idcs = isdivconforming(ttXplus)
-@show length(Idcs)
-
-# error("stop")
-@target Q ()->BEAST.dual2forms(tetrs, skeleton(tetrs,1), Dir)
-Q = @make Q
-
-
-QXplus = assemble(Id, Q, Xplus)
-curlX = curl(X)
-QcurlX = assemble(Id, Q, curlX)
-
-v = QXplus \ (QcurlX * u)
-fcr1, geo1 = facecurrents(v, BEAST.ttrace(Xplus, bnd_tetrs));
-fcr2, geo2 = facecurrents(u, BEAST.ttrace(curl(X), bnd_tetrs));
-fcr3, geo3 = facecurrents(v, divergence(ttXplus));
-
-
-# tetrs1 = skeleton(tetrs,1)
-# tetrs2 = skeleton(tetrs,2)
-# ttXplus = BEAST.ttrace(Xplus, bnd_tetrs)
-#
-# @assert dimension(geometry(ttXplus)) == 2
-# length(geometry(ttXplus)) == length(tetrs2)
-#
-# Conn = connectivity(tetrs1, tetrs2)
+Plotly.plot(patch(geo, norm.(fcr)))

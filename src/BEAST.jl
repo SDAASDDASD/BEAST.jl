@@ -1,5 +1,6 @@
 module BEAST
 
+#loading packages
 using Distributed
 using LinearAlgebra
 # using Pkg
@@ -144,6 +145,7 @@ include("bases/tensorbasis.jl")
 include("excitation.jl")
 include("operator.jl")
 include("localop.jl")
+include("multiplicativeop.jl")
 include("identityop.jl")
 include("integralop.jl")
 include("quaddata.jl")
